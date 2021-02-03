@@ -108,6 +108,9 @@ public abstract class BaseBuilder {
     }
   }
 
+  /**
+   * 根据别名获取结果类，别名为空，返回空，如果根据别名查询出结果，直接返回，如果查询不出结果则创建
+   */
   protected <T> Class<? extends T> resolveClass(String alias) {
     if (alias == null) {
       return null;
@@ -145,6 +148,9 @@ public abstract class BaseBuilder {
     return handler;
   }
 
+  /**
+   * 根据别名获取结果类，如果不存在则创建
+   */
   protected <T> Class<? extends T> resolveAlias(String alias) {
     return typeAliasRegistry.resolveAlias(alias);
   }

@@ -27,11 +27,14 @@ import org.apache.ibatis.session.defaults.DefaultSqlSessionFactory;
 
 /**
  * Builds {@link SqlSession} instances.
+ * 建造者模式 构建SqlSession工厂
  *
  * @author Clinton Begin
  */
+// 建造者模式创建SqlSessionFactory
 public class SqlSessionFactoryBuilder {
 
+  // 字符流，创建SqlSessionFactory
   public SqlSessionFactory build(Reader reader) {
     return build(reader, null, null);
   }
@@ -60,6 +63,7 @@ public class SqlSessionFactoryBuilder {
     }
   }
 
+  // 字节流创建SqlSessionFactory
   public SqlSessionFactory build(InputStream inputStream) {
     return build(inputStream, null, null);
   }
@@ -74,6 +78,7 @@ public class SqlSessionFactoryBuilder {
 
   public SqlSessionFactory build(InputStream inputStream, String environment, Properties properties) {
     try {
+      // 用配置文件信息，环境，系统属性，来构建XMLConfigBuilder
       XMLConfigBuilder parser = new XMLConfigBuilder(inputStream, environment, properties);
       return build(parser.parse());
     } catch (Exception e) {
@@ -88,6 +93,7 @@ public class SqlSessionFactoryBuilder {
     }
   }
 
+  // 创建SqlSessionFactory 类型，DefaultSqlSessionFactory,上述方法都会使用，使用的是默认SqlSessionFactory工厂。
   public SqlSessionFactory build(Configuration config) {
     return new DefaultSqlSessionFactory(config);
   }

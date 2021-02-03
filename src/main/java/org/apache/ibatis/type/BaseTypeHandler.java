@@ -35,6 +35,8 @@ import org.apache.ibatis.session.Configuration;
  * @author Simone Tripodi
  * @author Kzuki Shimizu
  */
+// 模板模式，各种类型都实现了,用于设置查询参数和获取结果集
+//此处的TypeReference,设计的很巧妙。
 public abstract class BaseTypeHandler<T> extends TypeReference<T> implements TypeHandler<T> {
 
   /**

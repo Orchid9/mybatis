@@ -102,6 +102,9 @@ public class TypeAliasRegistry {
 
   @SuppressWarnings("unchecked")
   // throws class cast exception as well if types cannot be assigned
+  /**
+   * 根据别名获取结果类，如果不存在则创建
+   */
   public <T> Class<T> resolveAlias(String string) {
     try {
       if (string == null) {
@@ -139,6 +142,7 @@ public class TypeAliasRegistry {
   }
 
   public void registerAlias(Class<?> type) {
+    // 扫描的包下，是否有 Alias注解，有该注解，获取注解中的值
     String alias = type.getSimpleName();
     Alias aliasAnnotation = type.getAnnotation(Alias.class);
     if (aliasAnnotation != null) {
