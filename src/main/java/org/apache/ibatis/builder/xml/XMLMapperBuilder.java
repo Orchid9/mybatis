@@ -56,6 +56,7 @@ import org.apache.ibatis.type.TypeHandler;
 public class XMLMapperBuilder extends BaseBuilder {
 
   private final XPathParser parser;
+  // mapper建造者辅助类
   private final MapperBuilderAssistant builderAssistant;
   private final Map<String, XNode> sqlFragments;
   private final String resource;
@@ -91,7 +92,9 @@ public class XMLMapperBuilder extends BaseBuilder {
   }
 
   public void parse() {
+    // 如果不是是标签中 resource 加载的
     if (!configuration.isResourceLoaded(resource)) {
+      // 配置DAO层的mapper到configuratoin
       configurationElement(parser.evalNode("/mapper"));
       configuration.addLoadedResource(resource);
       bindMapperForNamespace();
@@ -108,14 +111,49 @@ public class XMLMapperBuilder extends BaseBuilder {
 
   private void configurationElement(XNode context) {
     try {
+      // <mapper namespace="org.apache.ibatis.submitted.substitution_in_annots.SubstitutionInAnnotsMapper">
+      //    <select id="getPersonNameByIdWithXml" parameterType="int" resultType="String">
+      //        select firstName from ibtest.names where id=${value}
+      //    </select>
+      //</mapper>
+      // 获取namespace 设计概念类似于java中的package
       String namespace = context.getStringAttribute("namespace");
       if (namespace == null || namespace.isEmpty()) {
         throw new BuilderException("Mapper's namespace cannot be empty");
       }
+      // 为Mapper辅助类设置当前加载的 namespace
       builderAssistant.setCurrentNamespace(namespace);
+      // 配置cache-ref，cache-ref代表引用别的命名空间的Cache配置，两个命名空间的操作使用的是同一个Cache。
+      // <mapper namespace="org.apache.ibatis.submitted.resolution.cacherefs.MapperA">
+      //  <cache-ref namespace="org.apache.ibatis.submitted.resolution.cacherefs.MapperB" />
+      //  <select id="getUser" resultType="org.apache.ibatis.submitted.resolution.User">
+      //    select id, name from users where id = #{id}
+      //  </select>
+      //</mapper>
       cacheRefElement(context.evalNode("cache-ref"));
+      // <mapper namespace="org.apache.ibatis.submitted.cacheorder.Mapper2">
+      //    <cache/>
+      // </mapper>
+      // 配置cache
+      // 空cache元素定义会生成一个采用最近最少使用算法最多只能存储1024个元素的缓存，而且是可读写的缓存，即该缓存是全局共享的，
+      // 任何一个线程在拿到缓存结果后对数据的修改都将影响其它线程获取的缓存结果，因为它们是共享的，同一个对象。
+      //cache元素可指定如下属性，每种属性的指定都是针对都是针对底层Cache的一种装饰，采用的是装饰器的模式。
       cacheElement(context.evalNode("cache"));
+      // 配置parameterMap,老式风格的参数映射,没见人用过，暂不理它
+      // <mapper namespace="org.apache.ibatis.submitted.xml_external_ref.ParameterMapReferencePetMapper">
+      //    <parameterMap type="org.apache.ibatis.submitted.xml_external_ref.Person" id="personParameter">
+      //        <parameter property="id"/>
+      //    </parameterMap>
+      //</mapper>
       parameterMapElement(context.evalNodes("/mapper/parameterMap"));
+      // 配置 resultMap 结果集
+      // <mapper namespace="mapper">
+      //    <resultMap id="ParentBeanResultMap" type="org.apache.ibatis.submitted.nestedresulthandler_multiple_association.ParentBean">
+      //        <id property="id" column="id"/>
+      //        <result property="value" column="value"/>
+      //        <collection property="childs" select="selectChildsBinomes" column="id" />
+      //    </resultMap>
+      // </mapper>
       resultMapElements(context.evalNodes("/mapper/resultMap"));
       sqlElement(context.evalNodes("/mapper/sql"));
       buildStatementFromContext(context.evalNodes("select|insert|update|delete"));
@@ -189,27 +227,51 @@ public class XMLMapperBuilder extends BaseBuilder {
 
   private void cacheRefElement(XNode context) {
     if (context != null) {
+      // 全局上下文中添加 cacheRef
       configuration.addCacheRef(builderAssistant.getCurrentNamespace(), context.getStringAttribute("namespace"));
       CacheRefResolver cacheRefResolver = new CacheRefResolver(builderAssistant, context.getStringAttribute("namespace"));
       try {
+        // 处理缓存引用
         cacheRefResolver.resolveCacheRef();
       } catch (IncompleteElementException e) {
+        // 如果出现异常，将其添加到上下文中的incompleteCacheRefs（为完成的cache引用）
         configuration.addIncompleteCacheRef(cacheRefResolver);
       }
     }
   }
 
   private void cacheElement(XNode context) {
+    // 参考文档：https://yq.aliyun.com/articles/608941
     if (context != null) {
+      // type：type属性用来指定当前底层缓存实现类，默认是PerpetualCache，如果我们想使用自定义的Cache，则可以通过该属性来指定，
+      // 对应的值是我们自定义的Cache的全路径名称。
       String type = context.getStringAttribute("type", "PERPETUAL");
       Class<? extends Cache> typeClass = typeAliasRegistry.resolveAlias(type);
+      // eviction：eviction，驱逐的意思。数据淘汰策略，默认是LRU，对应的就是LruCache，其默认只保存1024个Key，超出时按照最近最少使用算法进行驱逐，
+      // 详情请参考LruCache的源码。如果想使用自己的算法，则可以将该值指定为自己的驱逐算法实现类，只需要自己的类实现Mybatis的Cache接口即可。除了LRU以外，
+      // 系统还提供了FIFO（先进先出，对应FifoCache）、SOFT（采用软引用存储Value，便于垃圾回收，对应SoftCache）和WEAK（采用弱引用存储Value，便于垃圾回收，
+      // 对应WeakCache）这三种策略。
       String eviction = context.getStringAttribute("eviction", "LRU");
       Class<? extends Cache> evictionClass = typeAliasRegistry.resolveAlias(eviction);
+      // flushInterval：清空缓存的时间间隔，单位是毫秒，默认是不会清空的。当指定了该值时会再用ScheduleCache包装一次，其会在每次对缓存进行操作时判断距离
+      // 最近一次清空缓存的时间是否超过了flushInterval指定的时间，如果超出了，则清空当前的缓存，详情可参考ScheduleCache的实现。
       Long flushInterval = context.getLongAttribute("flushInterval");
+      // size：用来指定缓存中最多保存的Key的数量。其是针对LruCache而言的，LruCache默认只存储最多1024个Key，可通过该属性来改变默认值，当然，
+      // 如果你通过eviction指定了自己的驱逐算法，同时自己的实现里面也有setSize方法，那么也可以通过cache的size属性给自定义的驱逐算法里面的size赋值。
       Integer size = context.getIntAttribute("size");
+      // readOnly：是否只读 ，默认为false。当指定为false时，底层会用SerializedCache包装一次，其会在写缓存的时候将缓存对象进行序列化，然后在读缓存的时候
+      // 进行反序列化，这样每次读到的都将是一个新的对象，即使你更改了读取到的结果，也不会影响原来缓存的对象，即非只读，你每次拿到这个缓存结果都可以进行
+      // 修改，而不会影响原来的缓存结果； 当指定为true时那就是每次获取的都是同一个引用，对其修改会影响后续的缓存数据获取，这种情况下是不建议对获取到的
+      // 缓存结果进行更改，意为只读(不建议设置为true)。 这是Mybatis二级缓存读写和只读的定义，可能与我们通常情况下的只读和读写意义有点不同。每次都进行
+      // 序列化和反序列化无疑会影响性能，但是这样的缓存结果更安全，不会被随意更改，具体可根据实际情况进行选择。详情可参考SerializedCache的源码。
       boolean readWrite = !context.getBooleanAttribute("readOnly", false);
+      // blocking：默认为false，当指定为true时将采用BlockingCache进行封装，blocking，阻塞的意思，使用BlockingCache会在查询缓
+      // 存时锁住对应的Key，如果缓存命中了则会释放对应的锁，否则会在查询数据库以后再释放锁，这样可以阻止并发情况下多个线程同时
+      // 查询数据。 简单理解，也就是设置true时，在进行增删改之后的并发查询，只会有一条去数据库
+      // 查询，而不会并发
       boolean blocking = context.getBooleanAttribute("blocking", false);
       Properties props = context.getChildrenAsProperties();
+      // 根绝配置参数，使用新的缓存
       builderAssistant.useNewCache(typeClass, evictionClass, flushInterval, size, readWrite, blocking, props);
     }
   }
@@ -241,6 +303,7 @@ public class XMLMapperBuilder extends BaseBuilder {
   }
 
   private void resultMapElements(List<XNode> list) {
+    // 遍历处理每个resultMap
     for (XNode resultMapNode : list) {
       try {
         resultMapElement(resultMapNode);
@@ -256,21 +319,60 @@ public class XMLMapperBuilder extends BaseBuilder {
 
   private ResultMap resultMapElement(XNode resultMapNode, List<ResultMapping> additionalResultMappings, Class<?> enclosingType) {
     ErrorContext.instance().activity("processing " + resultMapNode.getValueBasedIdentifier());
+    //   <resultMap id="authorResultMap" type="Author">
+    //    <id column="author_id" property="id"/>
+    //    <result column="author_name" property="name"/>
+    //    <collection property="posts" ofType="Post">
+    //      <id property="id" column="post_id"/>
+    //      <result column="post_id" property="id"/>
+    //      <result column="post_content" property="content"/>
+    //    </collection>
+    //  </resultMap>
+
+    // <resultMap id="resultMapAccount" type="org.apache.ibatis.submitted.nestedresulthandler_association.Account">
+    //        <id property="accountUuid" column="account_uuid" />
+    //        <result property="accountName" column="account_name" />
+    //        <result property="birthDate" column="birth_date" />
+    //        <association property="address" javaType="org.apache.ibatis.submitted.nestedresulthandler_association.AccountAddress">
+    //            <id property="accountUuid" column="account_uuid" />
+    //            <result property="zipCode" column="zip_code" />
+    //            <result property="address" column="address" />
+    //        </association>
+    //    </resultMap>
+
+    //   <select id="getUserUsingXml" resultType="org.apache.ibatis.submitted.optional_on_mapper_method.User">
+    //    select * from users where id = #{id}
+    //  </select>
+    // 获取结果类类型
     String type = resultMapNode.getStringAttribute("type",
         resultMapNode.getStringAttribute("ofType",
             resultMapNode.getStringAttribute("resultType",
                 resultMapNode.getStringAttribute("javaType"))));
+    // 根据别名获取结果类
     Class<?> typeClass = resolveClass(type);
     if (typeClass == null) {
+      // 如果未查询到结果类
       typeClass = inheritEnclosingType(resultMapNode, enclosingType);
     }
+    // 鉴定器
     Discriminator discriminator = null;
     List<ResultMapping> resultMappings = new ArrayList<>(additionalResultMappings);
     List<XNode> resultChildren = resultMapNode.getChildren();
     for (XNode resultChild : resultChildren) {
+      //     <resultMap id="blogUsingConstructorWithResultMapAndProperties" type="Blog">
+      //        <constructor>
+      //            <idArg column="id" javaType="_int"/>
+      //            <arg column="title" javaType="java.lang.String"/>
+      //            <arg javaType="org.apache.ibatis.domain.blog.Author" resultMap="org.apache.ibatis.binding.BoundAuthorMapper.authorResultMapWithProperties"/>
+      //            <arg column="id" javaType="java.util.List" select="selectPostsForBlog"/>
+      //        </constructor>
+      //    </resultMap>
+      // 如果是构造节点
       if ("constructor".equals(resultChild.getName())) {
+        // 配置构造函数过程，传入参数节点，入参类类型，相应结果映射resultMappings
         processConstructorElement(resultChild, typeClass, resultMappings);
       } else if ("discriminator".equals(resultChild.getName())) {
+        // TODO: 2021-02-03 写到此处
         discriminator = processDiscriminatorElement(resultChild, typeClass, resultMappings);
       } else {
         List<ResultFlag> flags = new ArrayList<>();
@@ -293,14 +395,36 @@ public class XMLMapperBuilder extends BaseBuilder {
     }
   }
 
+  // 继承封装类型
   protected Class<?> inheritEnclosingType(XNode resultMapNode, Class<?> enclosingType) {
+    //   <resultMap id="ChildsBinomesResultMap" type="org.apache.ibatis.submitted.nestedresulthandler_multiple_association.Binome">
+    //        <association property="one" select="selectChildBeanById" column="idchild_from" javaType="org.apache.ibatis.submitted.nestedresulthandler_multiple_association.ChildBean" />
+    //        <association property="two" select="selectChildBeanById" column="idchild_to"  javaType="org.apache.ibatis.submitted.nestedresulthandler_multiple_association.ChildBean" />
+    //    </resultMap>
+    // 如果标签为association且节点属性resultMap为空
     if ("association".equals(resultMapNode.getName()) && resultMapNode.getStringAttribute("resultMap") == null) {
+      //    <resultMap id="ChildsBinomesResultMap" type="org.apache.ibatis.submitted.nestedresulthandler_multiple_association.Binome">
+      //        <association property="one" select="selectChildBeanById" column="idchild_from" javaType="org.apache.ibatis.submitted.nestedresulthandler_multiple_association.ChildBean" />
+      //        <association property="two" select="selectChildBeanById" column="idchild_to"  javaType="org.apache.ibatis.submitted.nestedresulthandler_multiple_association.ChildBean" />
+      //    </resultMap>
       String property = resultMapNode.getStringAttribute("property");
+      // 如果属性不为空且封装类型不为空
       if (property != null && enclosingType != null) {
+        // 创建元结果类
+        // todo 此处有时间再详细看
         MetaClass metaResultType = MetaClass.forClass(enclosingType, configuration.getReflectorFactory());
+        // 根据属性值，获取元结果类型
         return metaResultType.getSetterType(property);
       }
     } else if ("case".equals(resultMapNode.getName()) && resultMapNode.getStringAttribute("resultMap") == null) {
+      //     <resultMap id="personMapLoop" type="Person">
+      //        <id property="id" column="id"/>
+      //        <result property="firstName" column="firstName"/>
+      //        <result property="lastName" column="lastName"/>
+      //        <discriminator column="personType" javaType="String">
+      //            <case value="EmployeeType" resultMap="employeeMapLoop"/>
+      //        </discriminator>
+      //    </resultMap>
       return enclosingType;
     }
     return null;
@@ -308,6 +432,7 @@ public class XMLMapperBuilder extends BaseBuilder {
 
   private void processConstructorElement(XNode resultChild, Class<?> resultType, List<ResultMapping> resultMappings) {
     List<XNode> argChildren = resultChild.getChildren();
+    // 处理构造节点，设置结果标记
     for (XNode argChild : argChildren) {
       List<ResultFlag> flags = new ArrayList<>();
       flags.add(ResultFlag.CONSTRUCTOR);
@@ -368,6 +493,7 @@ public class XMLMapperBuilder extends BaseBuilder {
     return context.getStringAttribute("databaseId") == null;
   }
 
+  //从上下文构建结果映射
   private ResultMapping buildResultMappingFromContext(XNode context, Class<?> resultType, List<ResultFlag> flags) {
     String property;
     if (flags.contains(ResultFlag.CONSTRUCTOR)) {
@@ -375,6 +501,7 @@ public class XMLMapperBuilder extends BaseBuilder {
     } else {
       property = context.getStringAttribute("property");
     }
+    // 获取节点属性值
     String column = context.getStringAttribute("column");
     String javaType = context.getStringAttribute("javaType");
     String jdbcType = context.getStringAttribute("jdbcType");
@@ -386,10 +513,15 @@ public class XMLMapperBuilder extends BaseBuilder {
     String typeHandler = context.getStringAttribute("typeHandler");
     String resultSet = context.getStringAttribute("resultSet");
     String foreignColumn = context.getStringAttribute("foreignColumn");
+    // 判断是否进行懒加载
     boolean lazy = "lazy".equals(context.getStringAttribute("fetchType", configuration.isLazyLoadingEnabled() ? "lazy" : "eager"));
+    // 根据别名获取javaType结果类
     Class<?> javaTypeClass = resolveClass(javaType);
+    // 根据别名获取typeHandler结果类
     Class<? extends TypeHandler<?>> typeHandlerClass = resolveClass(typeHandler);
+    // 根据jdbcType名称获取jdbcType
     JdbcType jdbcTypeEnum = resolveJdbcType(jdbcType);
+    // 根据配置，映射建造辅助对象，创建结果映射对象
     return builderAssistant.buildResultMapping(resultType, property, column, javaTypeClass, jdbcTypeEnum, nestedSelect, nestedResultMap, notNullColumn, columnPrefix, typeHandlerClass, flags, resultSet, foreignColumn, lazy);
   }
 

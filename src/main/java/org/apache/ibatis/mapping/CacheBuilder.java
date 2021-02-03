@@ -35,6 +35,7 @@ import org.apache.ibatis.reflection.MetaObject;
 import org.apache.ibatis.reflection.SystemMetaObject;
 
 /**
+ *  缓存建造者，建造者模式
  * @author Clinton Begin
  */
 public class CacheBuilder {

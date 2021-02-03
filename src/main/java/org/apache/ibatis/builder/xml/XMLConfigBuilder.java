@@ -155,6 +155,7 @@ public class XMLConfigBuilder extends BaseBuilder {
       databaseIdProviderElement(root.evalNode("databaseIdProvider"));
       // 自定义类型处理器
       typeHandlerElement(root.evalNode("typeHandlers"));
+      // 接口sql映射器
       mapperElement(root.evalNode("mappers"));
     } catch (Exception e) {
       throw new BuilderException("Error parsing SQL Mapper Configuration. Cause: " + e, e);
@@ -513,20 +514,35 @@ public class XMLConfigBuilder extends BaseBuilder {
     }
   }
 
+//    <mappers>
+//        <mapper resource="org/apache/ibatis/submitted/multipleresultsetswithassociation/Mapper.xml" />
+//    </mappers>
+
   private void mapperElement(XNode parent) throws Exception {
     if (parent != null) {
       for (XNode child : parent.getChildren()) {
+        // 如果标签属性为包,扫描包下的mapper，添加到上下文configuration
+        //  <mappers>
+        //    <mapper resource="org/apache/ibatis/builder/xsd/BlogMapper.xml"/>
+        //    <mapper url="file:./src/test/java/org/apache/ibatis/builder/xsd/NestedBlogMapper.xml"/>
+        //    <mapper class="org.apache.ibatis.builder.xsd.CachedAuthorMapper"/>
+        //    <package name="org.apache.ibatis.builder.mapper"/>
+        //  </mappers>
         if ("package".equals(child.getName())) {
           String mapperPackage = child.getStringAttribute("name");
           configuration.addMappers(mapperPackage);
         } else {
+          // 不为空，则获取标签中的resource，url, class
           String resource = child.getStringAttribute("resource");
           String url = child.getStringAttribute("url");
           String mapperClass = child.getStringAttribute("class");
           if (resource != null && url == null && mapperClass == null) {
+            // resource不为为空
             ErrorContext.instance().resource(resource);
+            // 加载配置
             try(InputStream inputStream = Resources.getResourceAsStream(resource)) {
               XMLMapperBuilder mapperParser = new XMLMapperBuilder(inputStream, configuration, resource, configuration.getSqlFragments());
+              // 解析配置文件
               mapperParser.parse();
             }
           } else if (resource == null && url != null && mapperClass == null) {
