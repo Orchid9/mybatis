@@ -155,6 +155,14 @@ public class XMLMapperBuilder extends BaseBuilder {
       //    </resultMap>
       // </mapper>
       resultMapElements(context.evalNodes("/mapper/resultMap"));
+      // 配置 sql (定义可重用的 SQL 代码段)
+      // <sql id="sql1">id,name,age,gender</sql>
+      //
+      //<select id="getPerson" parameterType="int" resultType="orm.Person">
+      //    select
+      //    <include refid="sql1"></include>
+      //     from Person where id=#{id}
+      //</select>
       sqlElement(context.evalNodes("/mapper/sql"));
       buildStatementFromContext(context.evalNodes("select|insert|update|delete"));
     } catch (Exception e) {
@@ -367,27 +375,53 @@ public class XMLMapperBuilder extends BaseBuilder {
       //            <arg column="id" javaType="java.util.List" select="selectPostsForBlog"/>
       //        </constructor>
       //    </resultMap>
-      // 如果是构造节点
       if ("constructor".equals(resultChild.getName())) {
-        // 配置构造函数过程，传入参数节点，入参类类型，相应结果映射resultMappings
+        //   <resultMap id="personMapLoop" type="Person">
+        //        <id property="id" column="id"/>
+        //        <result property="firstName" column="firstName"/>
+        //        <result property="lastName" column="lastName"/>
+        //        <discriminator column="personType" javaType="String">
+        //            <case value="EmployeeType" resultMap="employeeMapLoop"/>
+        //        </discriminator>
+        //    </resultMap>
+        // 如果是构造节点
+        // 配置构造过程，传入参数节点，参类类型，相应结果映射resultMappings
         processConstructorElement(resultChild, typeClass, resultMappings);
       } else if ("discriminator".equals(resultChild.getName())) {
-        // TODO: 2021-02-03 写到此处
+        // 如果是鉴定器节点
+        // 配置鉴定器过程，传入参数节点，参类类型，相应结果映射discriminator
         discriminator = processDiscriminatorElement(resultChild, typeClass, resultMappings);
       } else {
+        // 都不是上述节点,从上下文构建结果映射，传入参数节点，参类类型，相应结果映射resultMappings
         List<ResultFlag> flags = new ArrayList<>();
+        // 节点包含id，设置标志位为ID
         if ("id".equals(resultChild.getName())) {
           flags.add(ResultFlag.ID);
         }
         resultMappings.add(buildResultMappingFromContext(resultChild, typeClass, flags));
       }
     }
+    // 获取标签resultMap 的属性id
     String id = resultMapNode.getStringAttribute("id",
             resultMapNode.getValueBasedIdentifier());
+    //   <resultMap id="employeeMap" type="Employee" extends="personMap">
+    //        <result property="jobTitle" column="jobTitle"/>
+    //        <discriminator column="employeeType" javaType="String">
+    //            <case value="DirectorType" resultMap="directorMap"/>
+    //        </discriminator>
+    //    </resultMap>
+    // 继承
     String extend = resultMapNode.getStringAttribute("extends");
+    //   <resultMap autoMapping="true"
+    //    type="org.apache.ibatis.submitted.constructor_automapping.Author"
+    //    id="authorRM">
+    //  </resultMap>
+    // 是否开启自动映射
     Boolean autoMapping = resultMapNode.getBooleanAttribute("autoMapping");
+    // 用参数创建ResultMapResolver对象
     ResultMapResolver resultMapResolver = new ResultMapResolver(builderAssistant, id, typeClass, extend, discriminator, resultMappings, autoMapping);
     try {
+      // 获取ResultMap
       return resultMapResolver.resolve();
     } catch (IncompleteElementException e) {
       configuration.addIncompleteResultMap(resultMapResolver);
@@ -461,6 +495,7 @@ public class XMLMapperBuilder extends BaseBuilder {
   }
 
   private void sqlElement(List<XNode> list) {
+    // 是上下文中的数据库编号是否为空
     if (configuration.getDatabaseId() != null) {
       sqlElement(list, configuration.getDatabaseId());
     }
@@ -469,6 +504,11 @@ public class XMLMapperBuilder extends BaseBuilder {
 
   private void sqlElement(List<XNode> list, String requiredDatabaseId) {
     for (XNode context : list) {
+      //    <select id="select1" databaseId="hsql"
+      //        resultType="string" parameterType="int">
+      //        select name from hsql where
+      //        id=#{value}
+      //    </select>
       String databaseId = context.getStringAttribute("databaseId");
       String id = context.getStringAttribute("id");
       id = builderAssistant.applyCurrentNamespace(id, false);

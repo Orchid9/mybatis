@@ -74,6 +74,15 @@ public class XNode {
     return builder.toString();
   }
 
+  //取得标示符   ("resultMap[authorResult]")
+  //XMLMapperBuilder.resultMapElement调用
+//	<resultMap id="authorResult" type="Author">
+//	  <id property="id" column="author_id"/>
+//	  <result property="username" column="author_username"/>
+//	  <result property="password" column="author_password"/>
+//	  <result property="email" column="author_email"/>
+//	  <result property="bio" column="author_bio"/>
+//	</resultMap>
   public String getValueBasedIdentifier() {
     StringBuilder builder = new StringBuilder();
     XNode current = this;
@@ -81,6 +90,7 @@ public class XNode {
       if (current != this) {
         builder.insert(0, "_");
       }
+      //先拿id，拿不到再拿value,再拿不到拿property
       String value = current.getStringAttribute("id",
           current.getStringAttribute("value",
               current.getStringAttribute("property", (String) null)));

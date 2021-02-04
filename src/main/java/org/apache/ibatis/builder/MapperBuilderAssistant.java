@@ -64,6 +64,11 @@ public class MapperBuilderAssistant extends BaseBuilder {
     this.currentNamespace = currentNamespace;
   }
 
+  /**
+   * 当isReference为true，判断当前base是否含有"."，如果含有，则直接返回
+   * 当isReference为false，判断当前别名base，是否以当前命名空前加"."开头，如果是，则直接返回base，否则如果含有"."，则报错
+   * 当isReference 校验不通过，则直接返回当前命名空间+"."+base
+   */
   public String applyCurrentNamespace(String base, boolean isReference) {
     if (base == null) {
       return null;
@@ -116,21 +121,21 @@ public class MapperBuilderAssistant extends BaseBuilder {
 
   // 根据配置使用新的缓存
   public Cache useNewCache(Class<? extends Cache> typeClass,
-      Class<? extends Cache> evictionClass,
-      Long flushInterval,
-      Integer size,
-      boolean readWrite,
-      boolean blocking,
-      Properties props) {
+                           Class<? extends Cache> evictionClass,
+                           Long flushInterval,
+                           Integer size,
+                           boolean readWrite,
+                           boolean blocking,
+                           Properties props) {
     Cache cache = new CacheBuilder(currentNamespace)
-        .implementation(valueOrDefault(typeClass, PerpetualCache.class))
-        .addDecorator(valueOrDefault(evictionClass, LruCache.class))
-        .clearInterval(flushInterval)
-        .size(size)
-        .readWrite(readWrite)
-        .blocking(blocking)
-        .properties(props)
-        .build();
+      .implementation(valueOrDefault(typeClass, PerpetualCache.class))
+      .addDecorator(valueOrDefault(evictionClass, LruCache.class))
+      .clearInterval(flushInterval)
+      .size(size)
+      .readWrite(readWrite)
+      .blocking(blocking)
+      .properties(props)
+      .build();
     configuration.addCache(cache);
     currentCache = cache;
     return cache;
@@ -177,12 +182,20 @@ public class MapperBuilderAssistant extends BaseBuilder {
     id = applyCurrentNamespace(id, false);
     extend = applyCurrentNamespace(extend, true);
 
+    // 判断配置的result中是否有extend
+    //     <resultMap id="directorMap" type="Director" extends="employeeMap">
+    //        <result property="department" column="department"/>
+    //    </resultMap>
     if (extend != null) {
+      // resultMaps中是否已经注册了该extend
       if (!configuration.hasResultMap(extend)) {
         throw new IncompleteElementException("Could not find a parent resultmap with id '" + extend + "'");
       }
+      // 通过extend值，获取其对应的resultMap
       ResultMap resultMap = configuration.getResultMap(extend);
+      // 获取拓展结果映射
       List<ResultMapping> extendedResultMappings = new ArrayList<>(resultMap.getResultMappings());
+      // 以下几个操作是为了剔除extendedResultMappings 包好标志位CONSTRUCTOR的对象
       extendedResultMappings.removeAll(resultMappings);
       // Remove parent constructor if this resultMap declares a constructor.
       boolean declaresConstructor = false;
@@ -197,9 +210,11 @@ public class MapperBuilderAssistant extends BaseBuilder {
       }
       resultMappings.addAll(extendedResultMappings);
     }
+    //建造者模式
     ResultMap resultMap = new ResultMap.Builder(configuration, id, type, resultMappings, autoMapping)
       .discriminator(discriminator)
       .build();
+    // 上下文配置结果映射
     configuration.addResultMap(resultMap);
     return resultMap;
   }
@@ -384,20 +399,20 @@ public class MapperBuilderAssistant extends BaseBuilder {
   }
 
   public ResultMapping buildResultMapping(
-      Class<?> resultType,
-      String property,
-      String column,
-      Class<?> javaType,
-      JdbcType jdbcType,
-      String nestedSelect,
-      String nestedResultMap,
-      String notNullColumn,
-      String columnPrefix,
-      Class<? extends TypeHandler<?>> typeHandler,
-      List<ResultFlag> flags,
-      String resultSet,
-      String foreignColumn,
-      boolean lazy) {
+    Class<?> resultType,
+    String property,
+    String column,
+    Class<?> javaType,
+    JdbcType jdbcType,
+    String nestedSelect,
+    String nestedResultMap,
+    String notNullColumn,
+    String columnPrefix,
+    Class<? extends TypeHandler<?>> typeHandler,
+    List<ResultFlag> flags,
+    String resultSet,
+    String foreignColumn,
+    boolean lazy) {
     Class<?> javaTypeClass = resolveResultJavaType(resultType, property, javaType);
     TypeHandler<?> typeHandlerInstance = resolveTypeHandler(javaTypeClass, typeHandler);
     List<ResultMapping> composites;
@@ -407,18 +422,18 @@ public class MapperBuilderAssistant extends BaseBuilder {
       composites = parseCompositeColumnName(column);
     }
     return new ResultMapping.Builder(configuration, property, column, javaTypeClass)
-        .jdbcType(jdbcType)
-        .nestedQueryId(applyCurrentNamespace(nestedSelect, true))
-        .nestedResultMapId(applyCurrentNamespace(nestedResultMap, true))
-        .resultSet(resultSet)
-        .typeHandler(typeHandlerInstance)
-        .flags(flags == null ? new ArrayList<>() : flags)
-        .composites(composites)
-        .notNullColumns(parseMultipleColumnNames(notNullColumn))
-        .columnPrefix(columnPrefix)
-        .foreignColumn(foreignColumn)
-        .lazy(lazy)
-        .build();
+      .jdbcType(jdbcType)
+      .nestedQueryId(applyCurrentNamespace(nestedSelect, true))
+      .nestedResultMapId(applyCurrentNamespace(nestedResultMap, true))
+      .resultSet(resultSet)
+      .typeHandler(typeHandlerInstance)
+      .flags(flags == null ? new ArrayList<>() : flags)
+      .composites(composites)
+      .notNullColumns(parseMultipleColumnNames(notNullColumn))
+      .columnPrefix(columnPrefix)
+      .foreignColumn(foreignColumn)
+      .lazy(lazy)
+      .build();
   }
 
   /**
