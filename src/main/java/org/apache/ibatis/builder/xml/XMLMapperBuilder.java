@@ -96,7 +96,9 @@ public class XMLMapperBuilder extends BaseBuilder {
     if (!configuration.isResourceLoaded(resource)) {
       // 配置DAO层的mapper到configuratoin
       configurationElement(parser.evalNode("/mapper"));
+      // 上下文中，添加解析的resource
       configuration.addLoadedResource(resource);
+      // TODO: 2021-02-05 到此处 ，张九星
       bindMapperForNamespace();
     }
 
@@ -164,6 +166,7 @@ public class XMLMapperBuilder extends BaseBuilder {
       //     from Person where id=#{id}
       //</select>
       sqlElement(context.evalNodes("/mapper/sql"));
+      // 从mapper中内容，构建statement
       buildStatementFromContext(context.evalNodes("select|insert|update|delete"));
     } catch (Exception e) {
       throw new BuilderException("Error parsing Mapper XML. The XML location is '" + resource + "'. Cause: " + e, e);
@@ -171,6 +174,7 @@ public class XMLMapperBuilder extends BaseBuilder {
   }
 
   private void buildStatementFromContext(List<XNode> list) {
+    // 上下文中是否配置了databaseId
     if (configuration.getDatabaseId() != null) {
       buildStatementFromContext(list, configuration.getDatabaseId());
     }
@@ -179,8 +183,11 @@ public class XMLMapperBuilder extends BaseBuilder {
 
   private void buildStatementFromContext(List<XNode> list, String requiredDatabaseId) {
     for (XNode context : list) {
+      //构建所有语句,一个mapper下可以有很多select
       final XMLStatementBuilder statementParser = new XMLStatementBuilder(configuration, builderAssistant, context, requiredDatabaseId);
       try {
+        // TODO: 2021-02-05 有时间细看，先看总的
+        // 解析statement节点
         statementParser.parseStatementNode();
       } catch (IncompleteElementException e) {
         configuration.addIncompleteStatement(statementParser);
@@ -511,20 +518,27 @@ public class XMLMapperBuilder extends BaseBuilder {
       //    </select>
       String databaseId = context.getStringAttribute("databaseId");
       String id = context.getStringAttribute("id");
+      // TODO: 2021-02-05 有时间看此处
       id = builderAssistant.applyCurrentNamespace(id, false);
+      // 判断requiredDatabaseId与解析mapper获取的databaseId是否匹配
       if (databaseIdMatchesCurrent(id, databaseId, requiredDatabaseId)) {
+        // 匹配的话，放入sql片段中
         sqlFragments.put(id, context);
       }
     }
   }
 
+  // databaseId 是否匹配当前的
   private boolean databaseIdMatchesCurrent(String id, String databaseId, String requiredDatabaseId) {
+    // requiredDatabaseId 不为空，且requiredDatabaseId 等于 mapper配置的databaseId,返回true
     if (requiredDatabaseId != null) {
       return requiredDatabaseId.equals(databaseId);
     }
+    // 如果mapper配置的databaseId不为空
     if (databaseId != null) {
       return false;
     }
+    // 如果片段不包含id，返回true
     if (!this.sqlFragments.containsKey(id)) {
       return true;
     }

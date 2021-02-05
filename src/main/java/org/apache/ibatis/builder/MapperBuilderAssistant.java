@@ -68,6 +68,7 @@ public class MapperBuilderAssistant extends BaseBuilder {
    * 当isReference为true，判断当前base是否含有"."，如果含有，则直接返回
    * 当isReference为false，判断当前别名base，是否以当前命名空前加"."开头，如果是，则直接返回base，否则如果含有"."，则报错
    * 当isReference 校验不通过，则直接返回当前命名空间+"."+base
+   * // mapper namespace + id
    */
   public String applyCurrentNamespace(String base, boolean isReference) {
     if (base == null) {
