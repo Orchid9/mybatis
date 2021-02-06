@@ -64,6 +64,7 @@ public final class PreparedStatementLogger extends BaseJdbcLogger implements Inv
         } else {
           setColumn(params[0], params[1]);
         }
+        // 动态代理调用 PreparedStatement 中的方法
         return method.invoke(statement, params);
       } else if ("getResultSet".equals(method.getName())) {
         ResultSet rs = (ResultSet) method.invoke(statement, params);

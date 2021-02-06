@@ -1,33 +1,35 @@
 /**
- *    Copyright 2009-2019 the original author or authors.
- *
- *    Licensed under the Apache License, Version 2.0 (the "License");
- *    you may not use this file except in compliance with the License.
- *    You may obtain a copy of the License at
- *
- *       http://www.apache.org/licenses/LICENSE-2.0
- *
- *    Unless required by applicable law or agreed to in writing, software
- *    distributed under the License is distributed on an "AS IS" BASIS,
- *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *    See the License for the specific language governing permissions and
- *    limitations under the License.
+ * Copyright 2009-2019 the original author or authors.
+ * <p>
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * <p>
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * <p>
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package org.apache.ibatis.session;
-
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.Reader;
-import java.util.Properties;
 
 import org.apache.ibatis.builder.xml.XMLConfigBuilder;
 import org.apache.ibatis.exceptions.ExceptionFactory;
 import org.apache.ibatis.executor.ErrorContext;
 import org.apache.ibatis.session.defaults.DefaultSqlSessionFactory;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.Reader;
+import java.util.Properties;
+
 /**
+ * 重要：构建SqlSessionFactory，创建想要的SqlSession
  * Builds {@link SqlSession} instances.
- * 建造者模式 构建SqlSession工厂
+ * 虽然后缀是Builder，但为工厂模式，根据入参
+ * 返回想要的SqlSessionFactory对象
  *
  * @author Clinton Begin
  */
@@ -80,6 +82,7 @@ public class SqlSessionFactoryBuilder {
     try {
       // 用配置文件信息，环境，系统属性，来构建XMLConfigBuilder
       XMLConfigBuilder parser = new XMLConfigBuilder(inputStream, environment, properties);
+      // parser.parse()解析配置文件到上下文配置configuration中
       return build(parser.parse());
     } catch (Exception e) {
       throw ExceptionFactory.wrapException("Error building SqlSession.", e);
@@ -94,6 +97,7 @@ public class SqlSessionFactoryBuilder {
   }
 
   // 创建SqlSessionFactory 类型，DefaultSqlSessionFactory,上述方法都会使用，使用的是默认SqlSessionFactory工厂。
+  // 根据解析的上下文configuration创建SqlSessionFactory对象
   public SqlSessionFactory build(Configuration config) {
     return new DefaultSqlSessionFactory(config);
   }

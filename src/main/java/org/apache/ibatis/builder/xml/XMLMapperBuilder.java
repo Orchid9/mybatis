@@ -98,12 +98,15 @@ public class XMLMapperBuilder extends BaseBuilder {
       configurationElement(parser.evalNode("/mapper"));
       // 上下文中，添加解析的resource
       configuration.addLoadedResource(resource);
-      // TODO: 2021-02-05 到此处 ，张九星
+      // 为namespace绑定mapper
       bindMapperForNamespace();
     }
 
+    // 解析未处理的结果集
     parsePendingResultMaps();
+    // 解析未处理的缓存引用
     parsePendingCacheRefs();
+    // 解析未处理的sql语句
     parsePendingStatements();
   }
 
@@ -195,6 +198,7 @@ public class XMLMapperBuilder extends BaseBuilder {
     }
   }
 
+  // 解析未处理的结果集
   private void parsePendingResultMaps() {
     Collection<ResultMapResolver> incompleteResultMaps = configuration.getIncompleteResultMaps();
     synchronized (incompleteResultMaps) {
@@ -210,6 +214,7 @@ public class XMLMapperBuilder extends BaseBuilder {
     }
   }
 
+  // 解析未处理的缓存引用
   private void parsePendingCacheRefs() {
     Collection<CacheRefResolver> incompleteCacheRefs = configuration.getIncompleteCacheRefs();
     synchronized (incompleteCacheRefs) {
@@ -225,6 +230,7 @@ public class XMLMapperBuilder extends BaseBuilder {
     }
   }
 
+  // 解析未处理的sql语句
   private void parsePendingStatements() {
     Collection<XMLStatementBuilder> incompleteStatements = configuration.getIncompleteStatements();
     synchronized (incompleteStatements) {
@@ -601,15 +607,19 @@ public class XMLMapperBuilder extends BaseBuilder {
     }
   }
 
+  // 为namespace绑定mapper,加载资源到configuration上下文，在上下文中配置mapper
   private void bindMapperForNamespace() {
+    // 获取当期那的namespace
     String namespace = builderAssistant.getCurrentNamespace();
     if (namespace != null) {
       Class<?> boundType = null;
       try {
+        // 反射创建对象
         boundType = Resources.classForName(namespace);
       } catch (ClassNotFoundException e) {
         // ignore, bound type is not required
       }
+      // 判断是否已经注入过该mapper
       if (boundType != null && !configuration.hasMapper(boundType)) {
         // Spring may not know the real resource name so we set a flag
         // to prevent loading again this resource from the mapper interface

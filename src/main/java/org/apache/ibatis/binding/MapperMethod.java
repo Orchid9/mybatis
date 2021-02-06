@@ -104,6 +104,11 @@ public class MapperMethod {
     return result;
   }
 
+  /**
+   * 结果的数量
+   * @param rowCount 行数
+   * @return
+   */
   private Object rowCountResult(int rowCount) {
     final Object result;
     if (method.returnsVoid()) {
@@ -305,6 +310,7 @@ public class MapperMethod {
       this.paramNameResolver = new ParamNameResolver(configuration, method);
     }
 
+    // 转换#{}，${}里面的值到sql命令中
     public Object convertArgsToSqlCommandParam(Object[] args) {
       return paramNameResolver.getNamedParams(args);
     }

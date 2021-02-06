@@ -546,13 +546,17 @@ public class XMLConfigBuilder extends BaseBuilder {
               mapperParser.parse();
             }
           } else if (resource == null && url != null && mapperClass == null) {
+            // url不为为空
             ErrorContext.instance().resource(url);
             try(InputStream inputStream = Resources.getUrlAsStream(url)){
               XMLMapperBuilder mapperParser = new XMLMapperBuilder(inputStream, configuration, url, configuration.getSqlFragments());
               mapperParser.parse();
             }
           } else if (resource == null && url == null && mapperClass != null) {
+            // mapperClass不为为空
+            // 创建mapperClass类
             Class<?> mapperInterface = Resources.classForName(mapperClass);
+            // 映射接口添加到configuration上下文中
             configuration.addMapper(mapperInterface);
           } else {
             throw new BuilderException("A mapper element may only specify a url, resource or class, but not more than one.");

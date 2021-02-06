@@ -58,10 +58,19 @@ public class PreparedStatementHandler extends BaseStatementHandler {
     ps.addBatch();
   }
 
+  /**
+   * 查询过程调用mysql包中代码实现
+   * @param statement
+   * @param resultHandler
+   * @param <E>
+   * @return
+   * @throws SQLException
+   */
   @Override
   public <E> List<E> query(Statement statement, ResultHandler resultHandler) throws SQLException {
     PreparedStatement ps = (PreparedStatement) statement;
     ps.execute();
+    //处理结果集
     return resultSetHandler.handleResultSets(ps);
   }
 
